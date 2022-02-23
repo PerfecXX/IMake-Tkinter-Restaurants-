@@ -2,11 +2,26 @@
 from tkinter import *
 from tkinter import messagebox
 from tkinter import ttk
-from datetime import datetime
 
-# Google Sheet Library
-from oauth2client.service_account import ServiceAccountCredentials
-import gspread
+
+def check_bill():
+    global change
+    try:
+        if len(Payment_Amount_Entry.get()) == 0:
+            messagebox.showerror("ข้อผิดพลาด", "กรุณากรอกจำนวนเงิน", parent=window)
+        else:
+            income = int(Payment_Amount_Entry.get())
+            if final_price > income:
+                messagebox.showerror("จำนวนเงินไม่ถูกต้อง", "เงินไม่พอจ่าย", parent=window)
+            else:
+                change = income - final_price
+                Change_Label.config(text="เงินทอน {} บาท".format(change))
+                messagebox.showinfo("สำเร็จ", "เงินทอน {} บาท".format(change), parent=window)
+
+    except ValueError:
+        messagebox.showerror("ข้อผิดพลาด", "จำนวนเงินไม่ถูกต้อง", parent=window)
+    except TypeError:
+        messagebox.showerror("ข้อผิดพลาด", "จำนวนเงินไม่ถูกต้อง", parent=window)
 
 
 def set_option_member(selected):
@@ -14,13 +29,35 @@ def set_option_member(selected):
         MemberNumberEntry.configure(state=NORMAL)
     else:
         MemberNumberEntry.configure(state=DISABLED)
-
-
+        
+        
 def set_option_discount(selected):
     if selected != 0:
         DiscountCodeEntry.configure(state=NORMAL)
+        if selected == 1:
+            cal_discount(total_price, 5)
+        elif selected == 2:
+            cal_discount(total_price, 10)
+        elif selected == 3:
+            cal_discount(total_price, 15)
+        elif selected == 4:
+            cal_discount(total_price, 20)
+        cal_final_price()
     else:
+        cal_discount(total_price, 0)
         DiscountCodeEntry.configure(state=DISABLED)
+
+
+def cal_discount(base_price, discount_percentage):
+    global total_discount
+    total_discount = (discount_percentage / 100) * base_price
+    Total_Discount_Label.config(text="ลดราคา {} บาท".format(total_discount))
+
+
+def cal_final_price():
+    global final_price
+    final_price = total_price - total_discount
+    Final_Price_Label.config(text="ราคาที่ต้องจ่ายปัจจุบัน {} บาท".format(final_price))
 
 
 def cal_total_price():
@@ -28,82 +65,116 @@ def cal_total_price():
     for key, val in menu_entry_list.items():
         if key in default_price and menu_entry_list[key] != 0:
             total_price += default_price[key] * val
-    print("total", total_price)
 
 
 def total_price_reset():  # in case user press "ทำรายการ" and close the window without do anything
     global total_price
     total_price = 0
+    final_price = 0
     window.destroy()
 
 
 def start_cal():
     cal_total_price()
-    global window, MemberNumberEntry, DiscountCodeEntry, Menulist
+    global window, MemberNumberEntry, DiscountCodeEntry, Menulist, Total_Discount_Label, Final_Price_Label, Payment_Amount_Entry, Change_Label
     window = Toplevel()
     window.title("{} - ทำรายการ".format(restaurant_name))
     window.resizable(FALSE, FALSE)
     window.geometry("%dx%d+0+0" % (width, height))
     window.grab_set()
 
-    Top_MenuHeader = Label(window, text="รายการอาหารที่สั่ง", fg=color_red, bg=color_yellow, width=25)
-    Top_MenuHeader.grid(row=0, column=0, sticky=NSEW)
+    TopListLabel = Label(window, text="รายการอาหาร", fg=color_red, bg=color_yellow, width=23)
+    TopListLabel.grid(row=0, column=0, sticky=W)
+    TopMemberLabel = Label(window, text="บัตรสมาชิก/บัตรส่วนลด", fg=color_yellow, bg=color_red, width=30)
+    TopMemberLabel.grid(row=0, column=1, sticky=W)
 
-    TOP_PriceCal = Label(window, text="บัตรสมาชิก/ส่วนลด", fg=color_gold, bg=color_red, width=25)
-    TOP_PriceCal.grid(row=0, column=1, sticky=NSEW)
-
-    LEFTFrame = Frame(window)
-    LEFTFrame.grid(row=1, column=0, sticky=NW)
-    RIGHTFrame = Frame(window)
-    RIGHTFrame.grid(row=1, column=1, sticky=NW)
-    RIGHTFrame2 = Frame(window)
-    RIGHTFrame2.grid(row=1, column=1, sticky=S, pady=165)
-
-    Menulist = Text(LEFTFrame, width=30, height=9)
-    Menulist.grid(row=1, column=0)
-    copy_menu()
+    Menulist = Text(window, width=23, height=10)
     Menulist.configure(state=DISABLED)
+    Menulist.grid(row=1, column=0, sticky=W)
+    copy_menu()
 
-    MemberLabel = Label(RIGHTFrame, text="บัตรสมาชิก")
-    MemberLabel.grid(row=0, column=0, sticky=W)
+    Total_Price_Label = Label(window, text="ราคารวมทุกรายการ {} บาท".format(total_price))
+    Total_Price_Label.grid(row=1, column=0)
+    Total_Price_Label.place(x=0, y=360)
+
+    Total_Discount_Label = Label(window, text="ลดราคา {} บาท".format(0))
+    Total_Discount_Label.grid(row=1, column=0)
+    Total_Discount_Label.place(x=0, y=400)
+
+    Final_Price_Label = Label(window, text="ราคาที่ต้องจ่ายปัจจุบัน {} บาท".format(0))
+    Final_Price_Label.place(x=0, y=440)
+    cal_final_price()
+
+    Change_Label = Label(window, text="เงินทอน {} บาท".format(0))
+    Change_Label.place(x=0, y=480)
+
+    MemberNumberLabel = Label(window, text="บัตรสมาชิก")
+    MemberNumberLabel.grid(row=1, column=1, sticky=NW)
+
     MemberStringVar = StringVar()
-    MemberDropDown = ttk.Combobox(RIGHTFrame, textvariable=MemberStringVar)
-    MemberDropDown["values"] = ("ไม่มีหมายเลขบัตรสมาชิก", "มีหมายเลขบัตรสมาชิก")
-    MemberDropDown["state"] = "readonly"
-    MemberDropDown.bind("<<ComboboxSelected>>", lambda _: set_option_member(MemberDropDown.current()))
-    MemberDropDown.current(0)
-    MemberDropDown.grid(row=0, column=1, sticky=N)
-    MemberNumberLabel = Label(RIGHTFrame, text="หมายเลขบัตรสมาชิก")
-    MemberNumberLabel.grid(row=1, column=0)
-    MemberNumberEntry = Entry(RIGHTFrame, width=21)
+    MemberNumberCombobox = ttk.Combobox(window, textvariable=MemberStringVar)
+    MemberNumberCombobox["values"] = ("ไม่มีหมายเลขสมาชิก", "มีหมายเลขสมาชิก")
+    MemberNumberCombobox["state"] = "readonly"
+    MemberNumberCombobox.bind("<<ComboboxSelected>>", lambda _: set_option_member(MemberNumberCombobox.current()))
+    MemberNumberCombobox.current(0)
+    MemberNumberCombobox.grid(row=1, column=1, sticky=NE)
+
+    MemberNumberEntryLabel = Label(window, text="ระบุเลขสมาชิก")
+    MemberNumberEntryLabel.place(x=445, y=85)
+    MemberNumberEntry = Entry(window)
+    MemberNumberEntry.place(x=619, y=85, width=400)
     MemberNumberEntry.configure(state=DISABLED)
-    MemberNumberEntry.grid(row=1, column=1)
 
-    DiscountLabel = Label(RIGHTFrame, text="บัตรส่วนลด")
-    DiscountLabel.grid(row=2, column=0, sticky=W)
-    DiscountStringVar = StringVar()
-    DiscountDropDown = ttk.Combobox(RIGHTFrame, textvariable=DiscountStringVar)
-    DiscountDropDown["values"] = ("ไม่มีบัตรส่วนลด", "ส่วนลด5%", "ส่วนลด10%", "ส่วนลด15%", "ส่วนลด20%")
-    DiscountDropDown["state"] = "readonly"
-    DiscountDropDown.bind("<<ComboboxSelected>>", lambda _: set_option_discount(DiscountDropDown.current()))
-    DiscountDropDown.current(0)
-    DiscountDropDown.grid(row=2, column=1, sticky=W)
+    DiscountCodeLabel = Label(window, text="ส่วนลด")
+    DiscountCodeLabel.grid(row=2, column=1, sticky=NW)
+    DiscountCodeLabel.place(x=445, y=135)
+    DiscountVar = StringVar()
+    DiscountCombobox = ttk.Combobox(window, textvariable=DiscountVar)
+    DiscountCombobox["values"] = ("ไม่มีส่วนลด", "5%", "10%", "15%", "20%")
+    DiscountCombobox["state"] = "readonly"
+    DiscountCombobox.bind("<<ComboboxSelected>>", lambda _: set_option_discount(DiscountCombobox.current()))
+    DiscountCombobox.current(0)
+    DiscountCombobox.grid(row=2, column=1, sticky=NW)
+    DiscountCombobox.place(x=619, y=135)
 
-    DiscountCodeLabel = Label(RIGHTFrame, text="รหัสบัตรส่วนลด")
-    DiscountCodeLabel.grid(row=3, column=0, sticky=W)
-    DiscountCodeEntry = Entry(RIGHTFrame, width=21)
+    DiscountLabel = Label(window, text="ระบุรหัสส่วนลด")
+    DiscountLabel.grid(row=3, column=1, sticky=NW)
+    DiscountLabel.place(x=445, y=175)
+
+    DiscountCodeEntry = Entry(window)
+    DiscountCodeEntry.place(x=619, y=175, width=400)
     DiscountCodeEntry.configure(state=DISABLED)
-    DiscountCodeEntry.grid(row=3, column=1, sticky=W)
 
-    PaymentHeader = Label(RIGHTFrame2, text="ช่องทางการชำระเงิน", fg=color_yellow, bg=color_blue, width=31)
-    PaymentHeader.grid(row=0, column=0, sticky=W)
-    PaymentRadioVar = IntVar()
-    Payment_Cash_Radio = Radiobutton(RIGHTFrame2, text="เงินสด", variable=PaymentRadioVar, value=1)
-    Payment_Cash_Radio.grid(row=1, column=0, sticky=W)
-    Payment_Cash_Radio = Radiobutton(RIGHTFrame2, text="บัตรเครดิต", variable=PaymentRadioVar, value=2)
-    Payment_Cash_Radio.grid(row=1, column=0, sticky=W, padx=100)
-    Payment_Cash_Radio = Radiobutton(RIGHTFrame2, text="จ่ายออนไลน์", variable=PaymentRadioVar, value=2)
-    Payment_Cash_Radio.grid(row=1, column=0, sticky=W, padx=250)
+    OperateLabel = Label(window, text="การชำระเงิน", fg=color_yellow, bg=color_blue)
+    OperateLabel.grid(row=4, column=1)
+    OperateLabel.place(x=445, y=215, width=575)
+
+    Payment_Amount_Label = Label(window, text="ช่องทางการชำระเงิน")
+    Payment_Amount_Label.grid(row=5, column=1)
+    Payment_Amount_Label.place(x=445, y=255)
+
+    Payment_Method_Var = StringVar()
+    Payment_Method_Combobox = ttk.Combobox(window, textvariable=Payment_Method_Var)
+    Payment_Method_Combobox["values"] = ("เงินสด", "พร้อมเพย์", "โอนเงินธนาคาร")
+    Payment_Method_Combobox["state"] = "readonly"
+    Payment_Method_Combobox.current(0)
+    Payment_Method_Combobox.bind("<<ComboboxSelected>>", lambda _: ...)
+    Payment_Method_Combobox.grid(row=7, column=2)
+    Payment_Method_Combobox.place(x=690, y=255, width=325)
+
+    Payment_Method_Label = Label(window, text="ป้อนจำนวนเงิน")
+    Payment_Method_Label.grid(row=6, column=2)
+    Payment_Method_Label.place(x=445, y=295)
+
+    Payment_Amount_Entry = Entry(window)
+    Payment_Amount_Entry.grid(row=5, column=2)
+    Payment_Amount_Entry.place(x=690, y=295, width=325)
+
+    ConfirmButton = Button(window, text="ยืนยันการชำระเงิน", fg=color_green, command=check_bill)
+    ConfirmButton.place(x=445, y=360, width=575)
+
+    CancelBillBotton = Button(window, text="ยกเลิกรายการ", fg=color_red, command=window.destroy)
+    CancelBillBotton.place(x=445, y=420, width=575)
 
     window.protocol("WM_DELETE_WINDOW", total_price_reset)
     window.mainloop()
@@ -156,6 +227,9 @@ menu_entry_list = {"Salmon": 0, "Spaghetti": 0, "Burger": 0, "Soup": 0, "Pizza":
 default_price = {"Salmon": 200, "Spaghetti": 100, "Burger": 80, "Soup": 80, "Pizza": 100, "French Fired": 80,
                  "Hot Dog": 50, "Steak": 120, "Salad": 70}
 total_price = 0
+total_discount = 0
+final_price = 0
+change = 0
 # Font
 font_name = "PSL-omyim"
 font_size_label = 20
